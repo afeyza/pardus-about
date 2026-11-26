@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+
+<policyconfig>
+
+  <vendor>Pardus Developers</vendor>
+  <vendor_url>http://www.pardus.org.tr/</vendor_url>
+
+  <!--
+    Boot Health helper. Unlike the system_info action, it always asks
+    for the administrator password (docs/mimari.md, decision 4).
+    The helper takes no parameters and only reads files.
+  -->
+  <action id="tr.org.pardus.pkexec.pardus-about.boot-health">
+    <description>Inspect boot files on the EFI system partition.</description>
+    <message>Authentication is required to read the boot files on the EFI system partition</message>
+    <message xml:lang="tr">EFI bölümündeki önyükleme dosyalarını okumak için yetkilendirme gerekiyor</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/share/pardus/pardus-about/src/BootHealthHelper.py</annotate>
+  </action>
+</policyconfig>

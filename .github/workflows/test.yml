@@ -1,0 +1,28 @@
+name: test
+
+on:
+  push:
+    branches: [onyukleme-sagligi]
+  pull_request:
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # pycodestyle: Pardus kod kuralları PEP 8 istiyor.
+      # lief: Authenticode özetini bağımsız bir uygulamayla karşılaştıran
+      # test için; modülün kendisi yalnızca standart kütüphaneyi kullanır.
+      - name: Install test tools
+        run: pip install pycodestyle lief
+
+      - name: PEP 8
+        run: pycodestyle src/util/boothealth src/BootHealthHelper.py tests
+
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
