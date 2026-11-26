@@ -85,7 +85,12 @@ Kurallar:
 - **`status`** dört değerden biridir: `ok`, `missing`, `unreadable`,
   `malformed`. `status` `ok` değilse `pe` alanı `null` olur.
 - **`role`** üç değerden biridir: `shim`, `grub`, `fallback`
-  (`EFI/BOOT/BOOTX64.EFI`).
+  (`EFI/BOOT/BOOTX64.EFI`). `esp.files` her zaman bu üç girdiyi bu
+  sırayla içerir.
+- **`esp.errors`** EFI bölümünün tamamını ilgilendiren sorunları listeler.
+  Şimdilik tek değer `esp_not_mounted`'dir: `/boot/efi` bağlı değildir,
+  dosyalar okunmaz ve üçü de `unreadable` olarak bildirilir. Tek bir
+  dosyanın sorunu `errors`'a değil, o dosyanın `status` alanına yazılır.
 - **`pe` nesnesi** `pe.parse()` çıktısının aynısıdır. `sbat` ve
   `vendor_cert_present`, ilgili bölüm dosyada yoksa `null` olur.
 - Şemaya alan eklemek serbesttir; alan silmek ya da anlamını değiştirmek

@@ -22,7 +22,7 @@ jobs:
         run: pip install pycodestyle lief
 
       - name: PEP 8
-        run: pycodestyle src/util/boothealth tests
+        run: pycodestyle src/util/boothealth src/BootHealthHelper.py tests
 
       - name: Unit tests
         run: python -m unittest discover -s tests -v
