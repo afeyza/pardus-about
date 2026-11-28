@@ -48,7 +48,7 @@ tests/
   "shim": {
     "validation_disabled": null,
     "mok_hashes": [],
-    "sbat_level": null
+    "sbat_level": { "shim": 4, "grub": 3, "grub.debian": 4 }
   },
   "kernel": {
     "path": "/boot/vmlinuz-6.12.0",
@@ -88,6 +88,10 @@ Kurallar:
   (`EFI/BOOT/BOOTX64.EFI`).
 - **`pe` nesnesi** `pe.parse()` çıktısının aynısıdır. `sbat` ve
   `vendor_cert_present`, ilgili bölüm dosyada yoksa `null` olur.
+- **`sbat_level`** `SbatLevelRT` değişkeninin bileşen adı → en düşük
+  kabul edilen sürüm sözlüğüdür. Değişkendeki `sbat,1,<tarih>` başlık
+  satırı alınmaz; `grub_sbat_revoked` kuralı yalnızca bileşen adına ve
+  sürüme bakar. Değişken okunamazsa `null` olur (28 Kasım 2026).
 - Şemaya alan eklemek serbesttir; alan silmek ya da anlamını değiştirmek
   `schema` sayısını artırmayı gerektirir.
 
@@ -292,6 +296,45 @@ almayan, kullanıcı onayıyla çalışan yardımcı) bununla bağdaşmadığı 
   doğrulanmalı.
 - Gerçek dosyada Authenticode özeti `pesign --hash --in <dosya>`
   çıktısıyla karşılaştırılmalı.
+
+## `efivars.py` hakkında notlar
+
+28 Kasım 2026'da grupça alınan kararlar (#3):
+
+- **Ham durum, anlam değil.** `efivars.py` her değişken için
+  `pe.inspect_file` ile aynı dört `status` değerini döndürür. "Yok"
+  ile "okunamadı" ayrı tutulur, çünkü bazı değişkenlerin yokluğu bir
+  anlam taşır: `MokSBStateRT` yoksa shim doğrulaması açıktır. Bu
+  yorumu `collect.py` yapar.
+- **Yalnızca `efivars`.** Yeni çekirdekler MOK değişkenlerini
+  `/sys/firmware/efi/mok-variables/` altında da gösterir, ama oradaki
+  dosyaları yalnızca root okuyabilir. Yetkisiz kod tek bir yoldan,
+  `/sys/firmware/efi/efivars` altından okur.
+- **Bölünmüş `MokListRT`.** shim büyük bir listeyi `MokListRT`,
+  `MokListRT1`, `MokListRT2`... diye böler. Parçalar ilk eksik numaraya
+  kadar okunup tek liste gibi ayrıştırılır.
+- **`sbat_level` sözlüktür** (şema bölümüne bakınız). Aynı bileşen iki
+  kez geçerse büyük sürüm alınır, çünkü daha sıkı olan odur.
+
+Biçimle ilgili ayrıntılar:
+
+- `efivarfs` dosyalarının ilk 4 baytı öznitelik alanıdır; veri ondan
+  sonra başlar.
+- GUID'ler dosyada karışık bayt sırasıyla durur (ilk üç alan
+  little-endian). Kod `uuid.UUID(...).bytes_le` kullanır; bunu bir test
+  sabitler.
+- Okuma 1 MB ile sınırlıdır; bozuk bir değişken belleği şişiremez.
+
+### Doğrulananlar ve doğrulanmayanlar
+
+- Sahte kök dizinlerle 42 test geçiyor: her değişken için var, yok,
+  okunamıyor ve bozuk durumları; gerçekçi bir MOK listesi (iki
+  sertifika, bir SHA-256 özeti); bölünmüş liste; shim'in
+  `SBAT_VAR_LATEST` biçimindeki bir SBAT seviyesi.
+- **Gerçek bir makinede henüz denenmedi.** Pardus 25.2 kurulu bir
+  sistemde `MokListRT` ve `SbatLevelRT` okunup `mokutil --list-enrolled`
+  ve `mokutil --list-sbat-revocations` çıktılarıyla karşılaştırılmalı
+  (#7).
 
 ## Testleri çalıştırma
 
