@@ -133,6 +133,8 @@ Bulgu nesnesinin alanları:
     `check_unavailable`).
 - **`subject`** (isteğe bağlı): bulgunun ilgili olduğu kontrol, örneğin
   `grub`, `kernel`, `SbatLevelRT`. Yalnızca `check_unavailable` kullanır.
+- **`variant`** (isteğe bağlı): yalnızca `shim_validation_disabled`
+  kullanır; birleştirme kuralı 5'e bakınız.
 - Kural motoru metin döndürmez. Metinler `messages.py` içinde İngilizce
   yazılır ve `po/tr.po` ile Türkçeye çevrilir; depodaki diğer metinler de
   böyle çalışıyor.
@@ -154,6 +156,7 @@ tanımlanmış demektir.
 | `sb_on_chain_ok` | sağlıklı | `booted_with_secure_boot` | İşlem gerekmiyor. | – |
 | `sb_on_grub_mok_hash` | bilgi | `booted_with_secure_boot` | GRUB güncellemesinden sonra, yeniden başlatmadan önce bu sayfayı kontrol edin. | Açılmazsa BIOS'tan Secure Boot'u kapatın. |
 | `sb_on_grub_changed` | uyarı | `signature_absent` | Bir sonraki açılış başarısız olabilir; yeniden başlatmadan önce bunu bilin. | Açılmazsa BIOS'tan Secure Boot'u kapatın. |
+| `sb_on_kernel_unsigned` | uyarı | `signature_absent` | Bir sonraki açılış başarısız olabilir; yeniden başlatmadan önce bunu bilin. | Açılmazsa BIOS'tan Secure Boot'u kapatın. |
 | `shim_validation_disabled` | uyarı | `state` | GRUB ve çekirdek imzalıysa doğrulamayı yeniden açın; imzasızsa olduğu gibi bırakın. | `mokutil --disable-validation` |
 | `setup_mode` | uyarı | `state` | BIOS'ta Secure Boot anahtarlarını fabrika ayarına döndürün. | BIOS'tan anahtarları yeniden silin. |
 | `grub_sbat_revoked` | uyarı | `state` | Secure Boot'u açmayın; açıksa yeniden başlatmadan önce sistemi güncelleyin. | Açılmazsa BIOS'tan Secure Boot'u kapatın. |
@@ -171,9 +174,10 @@ Koşullar:
 | `sb_on_chain_ok` | Açılış Secure Boot ile yapıldı **ve** diskteki GRUB ile çekirdek imzalı |
 | `sb_on_grub_mok_hash` | Secure Boot açık, GRUB imzasız ama Authenticode özeti `MokListRT`'de |
 | `sb_on_grub_changed` | Secure Boot açık, GRUB imzasız ve özeti `MokListRT`'de yok (açılıştan sonra diskteki GRUB değişmiş olmalı) |
+| `sb_on_kernel_unsigned` | Secure Boot açık, çalışan çekirdeğin diskteki dosyası imzasız (açılıştan sonra değişmiş olmalı) |
 | `shim_validation_disabled` | `MokSBStateRT` = 1 |
 | `setup_mode` | `SetupMode` = 1 |
-| `grub_sbat_revoked` | GRUB'un `.sbat` bölümündeki sürüm, `SbatLevelRT`'deki aynı bileşenin en düşük sürümünden küçük |
+| `grub_sbat_revoked` | GRUB'un `.sbat` bölümündeki bileşenlerden herhangi birinin sürümü, `SbatLevelRT`'deki aynı bileşenin en düşük sürümünden küçük |
 | `esp_not_checked` | Kullanıcı yetki vermedi; `esp` alanı `null` |
 | `check_unavailable` | Bir bulgu için gereken değer `null`, ya da dosya `missing`, `unreadable` veya `malformed` |
 
@@ -185,11 +189,44 @@ Birleştirme kuralları:
    biliniyorsa üretilir; biri bilinmiyorsa onun yerine `check_unavailable`
    çıkar.
 3. `sb_on_chain_ok`, `sb_on_grub_mok_hash` ve `sb_on_grub_changed` birbirini
-   dışlar.
+   dışlar. `sb_on_kernel_unsigned` bunların yanına eklenebilir, ama
+   `sb_on_chain_ok` ile birlikte çıkmaz.
 4. `shim_validation_disabled`, `setup_mode` ve `grub_sbat_revoked`
    diğerlerinden bağımsızdır, yanlarına eklenir.
 5. `shim_validation_disabled` için hangi önerinin gösterileceğini kural
    motoru imza durumuna bakarak seçer; kullanıcıya seçenek sunulmaz.
+   Seçim bulgunun `variant` alanındadır: `chain_signed` (GRUB ve çekirdek
+   imzalı, doğrulamayı yeniden açın), `chain_unsigned` (biri imzasız,
+   olduğu gibi bırakın) ya da `null` (bilinmiyor; mesaj temkinli olanı,
+   yani "olduğu gibi bırakın"ı göstermeli).
+
+28 Kasım 2026'da eklenen birleştirme kuralları (#5):
+
+6. **ESP okunmadıysa zincir hakkında iddia yok.** Secure Boot açık ve
+   `esp` `null` ise `sb_on_chain_ok` üretilmez, `esp_not_checked` çıkar.
+   GRUB'u bilmeden "her şey yolunda" demek delilsiz bir iddia olurdu.
+7. **ESP okunmadıysa çekirdek yine değerlendirilir.** Çekirdek imzasızsa
+   `sb_off_kernel_unsigned` / `sb_on_kernel_unsigned` `esp` olmadan da
+   çıkar. GRUB ve shim için ayrıca `check_unavailable` üretilmez;
+   `esp_not_checked` ikisini de kapsar.
+8. **`secure_boot` `null` ise** hiçbir `sb_*` bulgusu üretilmez;
+   `check_unavailable` (konu `SecureBoot`) çıkar. 4. kuraldaki bağımsız
+   bulgular yine değerlendirilir.
+9. **shim doğrulaması kapalıysa** (`validation_disabled` `true`) `sb_on_*`
+   bulguları üretilmez. shim doğrulama yapmadıysa "Secure Boot ile
+   açıldı" zincir hakkında kanıt değildir; durumu
+   `shim_validation_disabled` anlatır.
+10. **`validation_disabled` `null` ise** `check_unavailable` yalnızca
+    Secure Boot açıkken çıkar. Kapalıyken shim zaten hiçbir şeyi
+    doğrulamaz, bu değeri bilmemek sonucu değiştirmez.
+11. **Her konu bir kez.** Aynı konu için `check_unavailable` ve
+    `esp_not_checked` listede en fazla bir kez geçer.
+12. **Sıra.** Bulgular en ciddiden en hafife sıralanır (`warning`,
+    `info`, `ok`); arayüz listeyi bu sırayla gösterebilir.
+
+`check_unavailable` için kullanılan `subject` değerleri: `SecureBoot`,
+`SetupMode`, `MokSBStateRT`, `MokListRT`, `SbatLevelRT`, `kernel`, `grub`,
+`shim`, `grub_sbat` (GRUB'da `.sbat` bölümü yok).
 
 Test ve demo kuralı: her bulgu kimliği için `tests/fixtures/roots/`
 altında en az bir sahte kök dizin bulunur (#8). Böylece her senaryo
@@ -201,8 +238,9 @@ gerektirmeden gösterilebilir.
 - Önerideki "Secure Boot kapalı, GRUB veya çekirdek imzasız" senaryosu
   ikiye bölündü (`sb_off_grub_unsigned`, `sb_off_kernel_unsigned`), çünkü
   iki durumun nedeni ve çözümü farklı.
-- Önerideki tabloda olmayan üç bulgu eklendi: `sb_on_grub_changed`,
-  `esp_not_checked`, `check_unavailable`.
+- Önerideki tabloda olmayan dört bulgu eklendi: `sb_on_grub_changed`,
+  `sb_on_kernel_unsigned` (28 Kasım), `esp_not_checked`,
+  `check_unavailable`.
 - `evidence` alanına `booted_with_secure_boot` ve `state` değerleri
   eklendi.
 
