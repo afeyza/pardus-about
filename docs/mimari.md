@@ -336,6 +336,49 @@ Biçimle ilgili ayrıntılar:
   ve `mokutil --list-sbat-revocations` çıktılarıyla karşılaştırılmalı
   (#7).
 
+## `collect.py` hakkında notlar
+
+28 Kasım 2026'da grupça alınan kararlar (#4). Temel ilke: bir alan
+yalnızca okuma soruyu kesin olarak yanıtlıyorsa `true` ya da `false`
+olur, aksi hâlde `null`.
+
+| Alan | Değişken okundu | Değişken yok | Okunamadı / bozuk |
+|---|---|---|---|
+| `firmware.secure_boot` | değeri | `false` | `null` |
+| `firmware.setup_mode` | değeri | `false` | `null` |
+| `shim.validation_disabled` | değeri | shim açtıysa `false`, yoksa `null` | `null` |
+| `shim.mok_hashes` | özet listesi | `null` | `null` |
+| `shim.sbat_level` | sözlük | `null` | `null` |
+
+- **`SecureBoot` yoksa `false`.** Değişken UEFI 2.3.1'den beri
+  standarttır; yokluğu firmware'in Secure Boot desteklemediğini, yani
+  kapalı olduğunu gösterir. `null` seçilseydi Secure Boot desteği olmayan
+  sanal makinelerde boş yere "kontrol yapılamadı" çıkardı.
+- **"Shim açtı" = `MokListRT` okunabildi.** shim her açılışta bu
+  değişkeni oluşturur. shim olmadan açılmış bir sistemde
+  `MokSBStateRT`'nin yokluğu bir şey söylemez.
+- **`firmware.uefi`** `/sys/firmware/efi` klasörünün varlığıdır.
+- **Çekirdek** çalışan çekirdektir: `/boot/vmlinuz-<uname -r>`. Canlı
+  oturumda (`/proc/cmdline` içinde `boot=live`) `/boot` boş olduğu için
+  `/run/live/medium/live/vmlinuz` okunur; orada yoksa `/boot`'a
+  dönülür. `/proc/cmdline` okunamazsa `live_session` `null` olur.
+- **Paketler** `dpkg` çalıştırılmadan `/var/lib/dpkg/status` dosyasından
+  okunur: alt süreç açılmaz ve testte sahte dosya verilebilir. Paketin
+  `Status` satırının son kelimesi `installed` ise `true`, değilse
+  `false`; dosya okunamazsa `null`.
+- `esp` her zaman `null` döner. Yardımcı aracın çıktısını arayüz
+  ekler (#12).
+
+### Doğrulananlar ve doğrulanmayanlar
+
+- Sahte kök dizinlerle 30 test geçiyor: Legacy, UEFI, canlı oturum;
+  yukarıdaki tablonun her hücresi; okunamayan ve bozuk çekirdek.
+- **Gerçek sistemde doğrulanacaklar (#7):** paket adlarının
+  (`shim-signed`, `grub-efi-amd64-signed`) Pardus 25.2'de aynı olduğu;
+  Pardus canlı USB'sinde çekirdeğin `/run/live/medium/live/` altındaki
+  adı; `/boot/vmlinuz-*` dosyasının normal kullanıcıya okunabilir
+  olduğu.
+
 ## Testleri çalıştırma
 
 ```bash
